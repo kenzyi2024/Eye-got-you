@@ -1,79 +1,110 @@
 # Eye got you
 
-Dark-mode-first medical compliance app for complex eye-drop regimens. React Native + Expo + TypeScript.
+Dark-mode-first medical compliance app for complex eye-drop regimens.
+React Native · Expo SDK 57 (RN 0.86, React 19.2) · TypeScript.
 
-## What's built so far
+## What's built
 
 ```
+App.tsx                          Navigation root: Home → Scan → MedicationDetail (dark nav theme)
+index.ts                         Expo entry (registerRootComponent)
+
 src/
-├─ models/medication.ts          Data schema: Medication, DosingSchedule, DoseLog, Laterality (OS/OD/OU)
+├─ navigation/types.ts           Typed route params (RootStackParamList)
+├─ models/medication.ts          Schema: Medication, DosingSchedule, DoseLog, Laterality (OS/OD/OU)
 ├─ logic/clinicalEngine.ts       Pure rules: 5-min washout, 30-day expiry, interval/dose-spread math
 │  └─ clinicalEngine.test.ts     12 passing checks for the rules above
 ├─ state/useMedStore.ts          Zustand store (AsyncStorage-persisted) + all mutations
+├─ hooks/useDoseLogger.ts        Log a dose anywhere + drive the WashoutWarning
 ├─ lib/
-│  ├─ feedback.ts                Haptics + chime (successRecognized, warnBuzz, …)
+│  ├─ feedback.ts                Haptics + chime via expo-audio (successRecognized, warnBuzz, …)
 │  └─ ocr.ts                     Pluggable OCR bridge (MLKit in dev build, safe stub in Expo Go)
 ├─ theme/theme.ts                Iris palette, high-contrast tokens, large type scale
 ├─ components/
 │  ├─ EyeToggle.tsx              Eye-shaped switch that blinks open (cyan iris) ON / closes OFF
 │  ├─ PupilSpinner.tsx           Loading pupil that dilates & constricts on a loop
 │  ├─ DropReminder.tsx           Falling water-drop → ripple dose-reminder overlay
-│  └─ WashoutWarning.tsx         Full-screen "wash out the first!" danger takeover + live countdown
+│  └─ WashoutWarning.tsx         Full-screen "wash out the first!" takeover + live countdown
 └─ screens/
+   ├─ HomeScreen.tsx             Medication list, next-dose banner, scan button
+   ├─ ScanScreen.tsx             Route wrapper → replaces itself with the new bottle's detail
+   ├─ ScanFlow.tsx               Wires scanner → confirmation → store
    ├─ ScannerScreen.tsx          Auto-capture camera, glowing guide-box, haptic+chime on lock
    ├─ ConfirmationScreen.tsx     Yellow-on-black "Is this X?" with giant YES / NO targets
-   └─ ScanFlow.tsx               Wires scanner → confirmation → store
+   └─ MedicationDetailScreen.tsx Expiry, laterality, frequency stepper, reminders, log/archive
 ```
 
-## Install
+## Run it
 
 ```bash
-npx create-expo-app@latest eye-got-you --template blank-typescript
-cd eye-got-you
+cd "path/to/Eye got you"
 
-npx expo install zustand @react-native-async-storage/async-storage \
-  expo-camera expo-haptics expo-av \
-  react-native-reanimated react-native-svg expo-linear-gradient
+npm install
+npx expo install --fix   # locks every package to the exact version SDK 57 expects
 
-# Optional (production OCR, requires a dev build — not Expo Go):
+npx expo start
+```
+
+Then install **Expo Go** on your phone, join the **same Wi-Fi**, and scan the QR
+(iPhone: Camera app · Android: scan inside Expo Go). App opens on Home; tap
+**Scan a bottle** to try the camera.
+
+If you're starting from a clean machine and want the native config regenerated:
+
+```bash
+npx create-expo-app@latest . --template blank-typescript   # keeps src/, then re-add these files
+```
+
+### Dependencies (already in package.json)
+
+```
+@react-navigation/native  @react-navigation/native-stack
+react-native-screens  react-native-safe-area-context
+expo-camera  expo-haptics  expo-audio  expo-linear-gradient
+react-native-reanimated (v4)  react-native-worklets  react-native-svg
+zustand  @react-native-async-storage/async-storage
+
+# Optional — production label OCR, requires a dev build (not Expo Go):
 npm i @react-native-ml-kit/text-recognition
 ```
 
-`babel.config.js` — add the Reanimated plugin (must be last):
+`babel.config.js` uses the Reanimated-4 plugin, which now lives in
+`react-native-worklets` and **must be listed last**:
 
 ```js
 module.exports = function (api) {
   api.cache(true);
-  return { presets: ['babel-preset-expo'], plugins: ['react-native-reanimated/plugin'] };
+  return { presets: ['babel-preset-expo'], plugins: ['react-native-worklets/plugin'] };
 };
 ```
 
-Add a short success tone at `assets/audio/chime.mp3`.
+A short success tone ships at `assets/audio/chime.mp3` (swap in your own any time).
 
-## Using it
+## Log a dose from any screen
 
 ```tsx
-import ScanFlow from './src/screens/ScanFlow';
-import { EyeToggle } from './src/components/EyeToggle';
-import { useMedStore } from './src/state/useMedStore';
+import { useDoseLogger } from './src/hooks/useDoseLogger';
+import { WashoutWarning } from './src/components/WashoutWarning';
 
-// Scan a bottle (auto-capture → confirm → persisted, 30-day clock starts)
-<ScanFlow onComplete={(med) => navigation.navigate('Home')} />
-
-// Log a dose with washout enforcement
-const { logDose } = useMedStore();
-const decision = logDose(medId);
-if (!decision.allowed) showWashoutWarning(decision.remainingMs);
+const { attempt, washout, dismiss, override } = useDoseLogger();
+// attempt(medId) logs it, or opens the washout takeover if a different
+// drop was used < 5 minutes ago.
+<WashoutWarning {...washout} onDismiss={dismiss} onOverride={override} />
 ```
 
 ## Run the rule checks
 
 ```bash
-node --experimental-transform-types src/logic/clinicalEngine.test.ts
+npm run test:rules
+# node --experimental-transform-types src/logic/clinicalEngine.test.ts
 ```
 
 ## Notes / next up
 
-- `ocr.ts` returns `null` in Expo Go (no native text recognition), so the **barcode** auto-capture path works everywhere; wire MLKit in a dev build for label OCR.
-- Barcode → NDC name lookup is stubbed (`'Scanned medication'`) — plug in an NDC/RxNorm lookup where noted in `ScannerScreen.onBarcodeScanned`.
-- Local notifications for dose reminders (`expo-notifications`) and the Home dashboard are the next screens to build on top of the store + `nextDoseAcross()`.
+- `ocr.ts` returns `null` in Expo Go (no native text recognition), so the
+  **barcode** auto-capture path works everywhere; wire MLKit in a dev build for
+  label OCR.
+- Barcode → NDC name lookup is stubbed (`'Scanned medication'`) — plug in an
+  NDC/RxNorm lookup where noted in `ScannerScreen.onBarcodeScanned`.
+- `expo-notifications` to fire the real dose reminders on the schedule times
+  (`nextDoseAcross()` already computes the next slot).

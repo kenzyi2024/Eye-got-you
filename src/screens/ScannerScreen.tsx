@@ -11,7 +11,7 @@
  *   • A cooldown prevents the same bottle re-triggering in a loop.
  *
  * Install deps:
- *   npx expo install expo-camera expo-haptics expo-av
+ *   npx expo install expo-camera expo-haptics expo-audio
  *
  * OCR: expo-camera has no built-in text recognition, so we inject a
  * `recognizeText` function (default: MLKit via a native module, or a

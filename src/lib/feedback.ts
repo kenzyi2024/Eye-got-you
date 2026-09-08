@@ -5,17 +5,22 @@
  * across the app. Elderly and low-vision patients rely on the buzz +
  * chime as the primary confirmation channel, not just the screen.
  *
+ * Audio uses expo-audio (expo-av was removed in modern SDKs).
  * Install deps:
- *   npx expo install expo-haptics expo-av
+ *   npx expo install expo-haptics expo-audio
  *
  * Drop a short success tone at:  assets/audio/chime.mp3
  */
 
-import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import { Platform } from 'react-native';
+import {
+  createAudioPlayer,
+  setAudioModeAsync,
+  type AudioPlayer,
+} from 'expo-audio';
 
-let chime: Audio.Sound | null = null;
+let chime: AudioPlayer | null = null;
 let loading: Promise<void> | null = null;
 
 /** Preload the chime once at app start (call from a top-level effect). */
@@ -23,16 +28,15 @@ export async function preloadFeedback(): Promise<void> {
   if (chime || loading) return loading ?? Promise.resolve();
   loading = (async () => {
     try {
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true, // patients may keep the phone on silent
-        shouldDuckAndroid: true,
+      await setAudioModeAsync({
+        // patients often keep the phone on silent — chime should still play
+        playsInSilentMode: true,
+        shouldPlayInBackground: false,
       });
-      const { sound } = await Audio.Sound.createAsync(
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require('../../assets/audio/chime.mp3'),
-        { volume: 1.0 },
-      );
-      chime = sound;
+      // createAudioPlayer is synchronous; the source is bundled at build time.
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      chime = createAudioPlayer(require('../../assets/audio/chime.mp3'));
+      chime.volume = 1.0;
     } catch (err) {
       // Audio is a bonus channel — never let a missing asset crash a scan.
       if (__DEV__) console.warn('[feedback] chime preload failed', err);
@@ -45,10 +49,22 @@ async function playChime(): Promise<void> {
   try {
     if (!chime) await preloadFeedback();
     if (!chime) return;
-    await chime.replayAsync();
+    chime.seekTo(0);
+    chime.play();
   } catch (err) {
     if (__DEV__) console.warn('[feedback] chime play failed', err);
   }
+}
+
+/** Release native audio resources (call on app teardown if needed). */
+export function disposeFeedback(): void {
+  try {
+    chime?.remove();
+  } catch {
+    /* ignore */
+  }
+  chime = null;
+  loading = null;
 }
 
 /** Distinct "recognized!" moment: strong buzz + pleasant chime. */
