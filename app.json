@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Eye got you",
+    "slug": "eye-got-you",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#04060B",
+    "scheme": "eyegotyou",
+    "splash": {
+      "backgroundColor": "#04060B",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Eye got you uses the camera to read your eye-drop bottle so you never have to type it in.",
+        "UIUserInterfaceStyle": "Dark"
+      }
+    },
+    "android": {
+      "userInterfaceStyle": "dark",
+      "permissions": ["CAMERA", "VIBRATE"]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Eye got you uses the camera to read your eye-drop bottle so you never have to type it in."
+        }
+      ]
+    ]
+  }
+}
