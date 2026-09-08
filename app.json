@@ -21,13 +21,19 @@
     },
     "android": {
       "userInterfaceStyle": "dark",
-      "permissions": ["CAMERA", "VIBRATE"]
+      "permissions": ["CAMERA", "VIBRATE", "POST_NOTIFICATIONS", "SCHEDULE_EXACT_ALARM"]
     },
     "plugins": [
       [
         "expo-camera",
         {
           "cameraPermission": "Eye got you uses the camera to read your eye-drop bottle so you never have to type it in."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#2EC5CE"
         }
       ]
     ]

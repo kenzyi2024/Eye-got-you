@@ -21,6 +21,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { palette } from './src/theme/theme';
 import { preloadFeedback } from './src/lib/feedback';
+import { useReminderSync } from './src/hooks/useReminderSync';
+import { navigationRef } from './src/navigation/navigationRef';
 import type { RootStackParamList } from './src/navigation/types';
 import HomeScreen from './src/screens/HomeScreen';
 import ScanScreen from './src/screens/ScanScreen';
@@ -42,6 +44,9 @@ const navTheme: Theme = {
 };
 
 export default function App() {
+  // Keep OS reminders in sync with the store + handle notification taps.
+  useReminderSync();
+
   useEffect(() => {
     preloadFeedback();
   }, []);
@@ -49,7 +54,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <NavigationContainer theme={navTheme}>
+      <NavigationContainer ref={navigationRef} theme={navTheme}>
         <Stack.Navigator
           initialRouteName="Home"
           screenOptions={{

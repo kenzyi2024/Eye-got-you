@@ -61,6 +61,7 @@ npx create-expo-app@latest . --template blank-typescript   # keeps src/, then re
 @react-navigation/native  @react-navigation/native-stack
 react-native-screens  react-native-safe-area-context
 expo-camera  expo-haptics  expo-audio  expo-linear-gradient
+expo-notifications  expo-device
 react-native-reanimated (v4)  react-native-worklets  react-native-svg
 zustand  @react-native-async-storage/async-storage
 
@@ -106,5 +107,20 @@ npm run test:rules
   label OCR.
 - Barcode → NDC name lookup is stubbed (`'Scanned medication'`) — plug in an
   NDC/RxNorm lookup where noted in `ScannerScreen.onBarcodeScanned`.
-- `expo-notifications` to fire the real dose reminders on the schedule times
-  (`nextDoseAcross()` already computes the next slot).
+
+## Dose reminders (expo-notifications)
+
+Reminders fire automatically. `useReminderSync()` (mounted in `App.tsx`)
+watches the store and, on any change, reschedules a repeating **DAILY** local
+notification for every dose slot of every active, reminder-enabled,
+non-expired bottle (`src/lib/notifications.ts`). Toggling the eye switch off,
+archiving a bottle, or letting it expire cancels its reminders; tapping a
+reminder opens that medication's detail screen.
+
+Permission is requested the first time reminders are scheduled. Test it by
+setting a dose time a minute or two ahead, or call `listOwnedReminders()` to
+see what's queued.
+
+> **Expo Go note:** local scheduled notifications work in Expo Go on **iOS**.
+> **Android** Expo Go has limited notification support — use a dev build
+> (`npx expo run:android`) to verify Android reminders.
