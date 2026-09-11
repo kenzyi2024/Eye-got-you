@@ -121,6 +121,14 @@ Permission is requested the first time reminders are scheduled. Test it by
 setting a dose time a minute or two ahead, or call `listOwnedReminders()` to
 see what's queued.
 
+The **Reminders** screen (⚙ on Home → `ReminderSettingsScreen`) adds:
+- **Quiet hours** — a window (wraps past midnight) whose dose slots are muted;
+  toggling it reschedules everything. Skipped slots are still visible per bottle.
+- **Snooze 10 min** — a one-off nudge per bottle. Snoozes are tagged separately
+  so a reschedule won't wipe them; they fire once and disappear.
+- **Currently scheduled** — the live queue from `listOwnedReminders()`, each row
+  cancellable, refreshed on focus.
+
 > **Expo Go note:** local scheduled notifications work in Expo Go on **iOS**.
 > **Android** Expo Go has limited notification support — use a dev build
 > (`npx expo run:android`) to verify Android reminders.

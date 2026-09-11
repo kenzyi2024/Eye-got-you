@@ -11,6 +11,8 @@ export type RootStackParamList = {
   Scan: undefined;
   /** Detail for a single medication, by id. */
   MedicationDetail: { medicationId: string };
+  /** Reminders & quiet-hours settings. */
+  ReminderSettings: undefined;
 };
 
 export type HomeProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
@@ -18,6 +20,10 @@ export type ScanProps = NativeStackScreenProps<RootStackParamList, 'Scan'>;
 export type MedicationDetailProps = NativeStackScreenProps<
   RootStackParamList,
   'MedicationDetail'
+>;
+export type ReminderSettingsProps = NativeStackScreenProps<
+  RootStackParamList,
+  'ReminderSettings'
 >;
 
 /** Enables `useNavigation<AppNavigation>()` without re-specifying params. */

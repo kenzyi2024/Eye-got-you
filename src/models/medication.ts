@@ -168,3 +168,25 @@ export const WASHOUT_MS = 5 * 60 * 1000;
 
 /** Default discard window once a bottle is opened. */
 export const DEFAULT_DISCARD_DAYS = 30;
+
+/** How long a "snooze" pushes a reminder out, in minutes. */
+export const SNOOZE_MINUTES = 10;
+
+/**
+ * App-wide reminder preferences. Times are minutes-from-midnight, so a
+ * quiet window can wrap past midnight (start > end).
+ */
+export interface ReminderSettings {
+  /** When on, dose slots inside the quiet window are not announced. */
+  quietHoursEnabled: boolean;
+  /** e.g. 22 * 60 = 1320 for 22:00. */
+  quietStartMinutes: number;
+  /** e.g. 7 * 60 = 420 for 07:00. */
+  quietEndMinutes: number;
+}
+
+export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
+  quietHoursEnabled: false,
+  quietStartMinutes: 22 * 60,
+  quietEndMinutes: 7 * 60,
+};

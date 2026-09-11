@@ -67,6 +67,15 @@ export default function HomeScreen({ navigation }: HomeProps) {
                 : `${medications.length} medication${medications.length > 1 ? 's' : ''} tracked`}
             </Text>
           </View>
+          <Pressable
+            style={styles.settingsBtn}
+            onPress={() => navigation.navigate('ReminderSettings')}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Reminder settings"
+          >
+            <Text style={styles.settingsIcon}>⚙</Text>
+          </Pressable>
         </View>
 
         {next && nextMed ? (
@@ -167,6 +176,17 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginBottom: space.xs },
   title: { color: palette.textHi, fontSize: t.title, fontWeight: t.weightBlack },
   subtitle: { color: palette.textMid, fontSize: t.label, marginTop: 2 },
+  settingsBtn: {
+    width: touch.minTarget,
+    height: touch.minTarget,
+    borderRadius: touch.minTarget / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.ink700,
+    borderWidth: 1,
+    borderColor: palette.ink500,
+  },
+  settingsIcon: { color: palette.cyan, fontSize: 28 },
 
   nextBanner: {
     borderRadius: radius.md,

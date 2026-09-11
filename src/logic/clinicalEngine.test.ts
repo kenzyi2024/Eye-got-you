@@ -14,6 +14,7 @@ import {
   computeExpiry,
   evaluateDoseAttempt,
   formatCountdown,
+  isWithinQuietHours,
   minutesToClock,
   optimalIntervalHours,
   spreadDoseTimes,
@@ -108,6 +109,29 @@ check('4x/day -> even quarters, rounded to 5', () => {
 });
 check('optimal interval hours for 3x', () => {
   assert.equal(optimalIntervalHours(3, WINDOW), 7.5);
+});
+
+console.log('Quiet hours:');
+check('overnight window (22:00–07:00) covers late night + early morning', () => {
+  const start = 22 * 60;
+  const end = 7 * 60;
+  assert.equal(isWithinQuietHours(23 * 60, start, end), true); // 23:00
+  assert.equal(isWithinQuietHours(6 * 60, start, end), true); //  06:00
+  assert.equal(isWithinQuietHours(0, start, end), true); //         00:00
+  assert.equal(isWithinQuietHours(12 * 60, start, end), false); //  12:00
+});
+check('half-open window: start is quiet, end is audible', () => {
+  const start = 22 * 60;
+  const end = 7 * 60;
+  assert.equal(isWithinQuietHours(22 * 60, start, end), true); // exactly 22:00
+  assert.equal(isWithinQuietHours(7 * 60, start, end), false); // exactly 07:00
+});
+check('same-day window (13:00–14:00)', () => {
+  assert.equal(isWithinQuietHours(13 * 60 + 30, 13 * 60, 14 * 60), true);
+  assert.equal(isWithinQuietHours(15 * 60, 13 * 60, 14 * 60), false);
+});
+check('empty window (start === end) is never quiet', () => {
+  assert.equal(isWithinQuietHours(3 * 60, 8 * 60, 8 * 60), false);
 });
 
 console.log(`\nAll ${passed} checks passed.`);

@@ -16,6 +16,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import {
   DEFAULT_DISCARD_DAYS,
+  DEFAULT_REMINDER_SETTINGS,
   DEFAULT_WAKING_WINDOW,
   DoseLog,
   DoseStatus,
@@ -23,6 +24,7 @@ import {
   DropForm,
   Laterality,
   Medication,
+  ReminderSettings,
   ScanSource,
   ScheduleKind,
 } from '../models/medication';
@@ -56,11 +58,16 @@ interface MedState {
   medications: Medication[];
   schedules: DosingSchedule[];
   logs: DoseLog[];
+  settings: ReminderSettings;
 
   /* ---- selectors (derived, computed on demand) ---- */
   washout: () => WashoutState;
   canLog: (medicationId: string) => WashoutDecision;
   scheduleFor: (medicationId: string) => DosingSchedule | undefined;
+
+  /* ---- settings ---- */
+  setQuietHoursEnabled: (enabled: boolean) => void;
+  setQuietHours: (startMinutes: number, endMinutes: number) => void;
 
   /* ---- mutations ---- */
   addScannedMedication: (bottle: ScannedBottle) => Medication;
@@ -90,6 +97,7 @@ export const useMedStore = create<MedState>()(
       medications: [],
       schedules: [],
       logs: [],
+      settings: DEFAULT_REMINDER_SETTINGS,
 
       /* ------------------------------ selectors ------------------------------ */
 
@@ -99,6 +107,16 @@ export const useMedStore = create<MedState>()(
 
       scheduleFor: (medicationId) =>
         get().schedules.find((s) => s.medicationId === medicationId),
+
+      /* ------------------------------ settings ------------------------------- */
+
+      setQuietHoursEnabled: (enabled) =>
+        set((s) => ({ settings: { ...s.settings, quietHoursEnabled: enabled } })),
+
+      setQuietHours: (startMinutes, endMinutes) =>
+        set((s) => ({
+          settings: { ...s.settings, quietStartMinutes: startMinutes, quietEndMinutes: endMinutes },
+        })),
 
       /* ------------------------------ mutations ------------------------------ */
 
@@ -243,6 +261,7 @@ export const useMedStore = create<MedState>()(
         medications: s.medications,
         schedules: s.schedules,
         logs: s.logs,
+        settings: s.settings,
       }),
     },
   ),

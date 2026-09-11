@@ -211,6 +211,29 @@ export function minutesToClock(minutes: number): string {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Quiet hours                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Whether a minutes-from-midnight time falls inside a quiet-hours window.
+ * Correctly handles windows that wrap past midnight (e.g. 22:00 → 07:00).
+ * The window is half-open: [start, end) so an exact `end` time is audible.
+ */
+export function isWithinQuietHours(
+  minutes: number,
+  startMinutes: number,
+  endMinutes: number,
+): boolean {
+  const t = ((minutes % 1440) + 1440) % 1440;
+  const start = ((startMinutes % 1440) + 1440) % 1440;
+  const end = ((endMinutes % 1440) + 1440) % 1440;
+
+  if (start === end) return false; // empty (or full-day) window → treat as off
+  if (start < end) return t >= start && t < end; // same-day window
+  return t >= start || t < end; // wraps past midnight
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Next-dose helper — used by the home screen & reminders                     */
 /* -------------------------------------------------------------------------- */
 

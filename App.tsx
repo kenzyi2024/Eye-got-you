@@ -27,6 +27,7 @@ import type { RootStackParamList } from './src/navigation/types';
 import HomeScreen from './src/screens/HomeScreen';
 import ScanScreen from './src/screens/ScanScreen';
 import MedicationDetailScreen from './src/screens/MedicationDetailScreen';
+import ReminderSettingsScreen from './src/screens/ReminderSettingsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -78,6 +79,11 @@ export default function App() {
             name="MedicationDetail"
             component={MedicationDetailScreen}
             options={{ title: 'Medication' }}
+          />
+          <Stack.Screen
+            name="ReminderSettings"
+            component={ReminderSettingsScreen}
+            options={{ title: 'Reminders' }}
           />
         </Stack.Navigator>
       </NavigationContainer>

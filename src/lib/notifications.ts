@@ -21,8 +21,10 @@ import {
   DosingSchedule,
   LATERALITY_LABEL,
   Medication,
+  ReminderSettings,
+  SNOOZE_MINUTES,
 } from '../models/medication';
-import { computeExpiry } from '../logic/clinicalEngine';
+import { computeExpiry, isWithinQuietHours } from '../logic/clinicalEngine';
 
 const ANDROID_CHANNEL = 'dose-reminders';
 
@@ -86,36 +88,58 @@ function toHourMinute(minutes: number): { hour: number; minute: number } {
   return { hour: Math.floor(m / 60), minute: m % 60 };
 }
 
+/** Reminder kinds we schedule. Recurring 'daily' vs one-off 'snooze'. */
+type ReminderKind = 'daily' | 'snooze';
+
+function isOwned(n: Notifications.NotificationRequest, kind?: ReminderKind): boolean {
+  const data = n.content?.data;
+  if (data?.owner !== OWNER_TAG) return false;
+  return kind ? data?.kind === kind : true;
+}
+
 /**
- * Cancel every reminder this app scheduled (identified by OWNER_TAG),
- * leaving any unrelated notifications untouched.
+ * Cancel the recurring daily reminders we scheduled, leaving one-off
+ * snoozes (and any unrelated notifications) in place.
  */
-export async function cancelAllReminders(): Promise<void> {
+export async function cancelRecurringReminders(): Promise<void> {
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(
     scheduled
-      .filter((n) => n.content?.data?.owner === OWNER_TAG)
+      .filter((n) => isOwned(n, 'daily'))
       .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)),
   );
 }
 
+/** Cancel a single scheduled reminder by identifier (from the list screen). */
+export async function cancelOneReminder(identifier: string): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(identifier);
+}
+
+export interface RescheduleResult {
+  /** Reminders actually scheduled to fire. */
+  scheduled: number;
+  /** Dose slots skipped because they fell inside quiet hours. */
+  muted: number;
+}
+
 /**
- * Rebuild the full reminder set from current state. Idempotent: cancels
- * our previous reminders, then schedules one DAILY notification per dose
- * slot of each eligible medication.
- *
- * Returns the number of reminders scheduled (handy for a settings badge).
+ * Rebuild the recurring reminder set from current state. Idempotent:
+ * cancels our previous daily reminders, then schedules one DAILY
+ * notification per dose slot of each eligible medication — skipping any
+ * slot that falls inside quiet hours.
  */
 export async function rescheduleAllReminders(
   medications: Medication[],
   schedules: DosingSchedule[],
-): Promise<number> {
+  settings: ReminderSettings,
+): Promise<RescheduleResult> {
   const granted = await ensureNotificationPermission();
-  await cancelAllReminders();
-  if (!granted) return 0;
+  await cancelRecurringReminders();
+  if (!granted) return { scheduled: 0, muted: 0 };
 
   const byId = new Map(medications.map((m) => [m.id, m]));
-  let count = 0;
+  let scheduled = 0;
+  let muted = 0;
 
   for (const schedule of schedules) {
     if (!schedule.remindersEnabled) continue;
@@ -128,6 +152,14 @@ export async function rescheduleAllReminders(
     const eye = LATERALITY_LABEL[med.laterality];
 
     for (const slot of schedule.doseTimesMinutes) {
+      if (
+        settings.quietHoursEnabled &&
+        isWithinQuietHours(slot, settings.quietStartMinutes, settings.quietEndMinutes)
+      ) {
+        muted++;
+        continue;
+      }
+
       const { hour, minute } = toHourMinute(slot);
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -138,6 +170,7 @@ export async function rescheduleAllReminders(
           sound: 'default',
           data: {
             owner: OWNER_TAG,
+            kind: 'daily' as ReminderKind,
             medicationId: med.id,
             scheduleId: schedule.id,
             slot,
@@ -151,15 +184,51 @@ export async function rescheduleAllReminders(
           ...(Platform.OS === 'android' ? { channelId: ANDROID_CHANNEL } : null),
         },
       });
-      count++;
+      scheduled++;
     }
   }
 
-  return count;
+  return { scheduled, muted };
 }
 
-/** Read back what we currently have scheduled (debug / settings screen). */
-export async function listOwnedReminders() {
+/**
+ * Push a one-off reminder for a bottle `minutes` from now (default 10).
+ * Snoozes survive a reschedule (they aren't 'daily'), and fire once.
+ * Returns the scheduled notification id.
+ */
+export async function snoozeReminder(
+  med: Medication,
+  minutes: number = SNOOZE_MINUTES,
+): Promise<string | null> {
+  const granted = await ensureNotificationPermission();
+  if (!granted) return null;
+
+  const eye = LATERALITY_LABEL[med.laterality];
+  const fireAt = Date.now() + minutes * 60_000;
+
+  return Notifications.scheduleNotificationAsync({
+    content: {
+      title: `Reminder: ${med.name}`,
+      body: `Snoozed ${minutes} min · ${eye} — tap to log your dose`,
+      sound: 'default',
+      data: {
+        owner: OWNER_TAG,
+        kind: 'snooze' as ReminderKind,
+        medicationId: med.id,
+        fireAt,
+      },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: Math.max(1, Math.round(minutes * 60)),
+      repeats: false,
+      ...(Platform.OS === 'android' ? { channelId: ANDROID_CHANNEL } : null),
+    },
+  });
+}
+
+/** Read back everything we currently have scheduled (settings screen). */
+export async function listOwnedReminders(): Promise<Notifications.NotificationRequest[]> {
   const all = await Notifications.getAllScheduledNotificationsAsync();
-  return all.filter((n) => n.content?.data?.owner === OWNER_TAG);
+  return all.filter((n) => isOwned(n));
 }

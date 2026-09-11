@@ -24,6 +24,7 @@ const DEBOUNCE_MS = 600;
 export function useReminderSync(): void {
   const medications = useMedStore((s) => s.medications);
   const schedules = useMedStore((s) => s.schedules);
+  const settings = useMedStore((s) => s.settings);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Configure handler/channel + handle taps once.
@@ -42,7 +43,7 @@ export function useReminderSync(): void {
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      rescheduleAllReminders(medications, schedules).catch((err) => {
+      rescheduleAllReminders(medications, schedules, settings).catch((err) => {
         if (__DEV__) console.warn('[reminders] reschedule failed', err);
       });
     }, DEBOUNCE_MS);
@@ -50,5 +51,5 @@ export function useReminderSync(): void {
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [medications, schedules]);
+  }, [medications, schedules, settings]);
 }
