@@ -38,6 +38,7 @@ import {
   LATERALITY_LABEL,
   LATERALITY_SHORT,
   Laterality,
+  MedQuietMode,
 } from '../models/medication';
 import type { MedicationDetailProps } from '../navigation/types';
 
@@ -52,9 +53,11 @@ export default function MedicationDetailScreen({
 
   const med = useMedStore((s) => s.medications.find((m) => m.id === medicationId));
   const schedule = useMedStore((s) => s.scheduleFor(medicationId));
+  const settings = useMedStore((s) => s.settings);
   const setLaterality = useMedStore((s) => s.setLaterality);
   const setTimesPerDay = useMedStore((s) => s.setTimesPerDay);
   const toggleReminders = useMedStore((s) => s.toggleReminders);
+  const setMedQuietOverride = useMedStore((s) => s.setMedQuietOverride);
   const archive = useMedStore((s) => s.archiveMedication);
 
   const { attempt, washout, dismiss, override } = useDoseLogger();
@@ -101,6 +104,29 @@ export default function MedicationDetailScreen({
     archive(med.id);
     navigation.goBack();
   };
+
+  // Per-bottle quiet-hours override.
+  const quietMode: MedQuietMode = med.quietOverride?.mode ?? 'default';
+  const customStart = med.quietOverride?.startMinutes ?? settings.quietStartMinutes;
+  const customEnd = med.quietOverride?.endMinutes ?? settings.quietEndMinutes;
+
+  const onQuietMode = (mode: MedQuietMode) => {
+    if (mode === 'default') setMedQuietOverride(med.id, undefined);
+    else if (mode === 'always') setMedQuietOverride(med.id, { mode: 'always' });
+    else
+      setMedQuietOverride(med.id, {
+        mode: 'custom',
+        startMinutes: customStart,
+        endMinutes: customEnd,
+      });
+  };
+
+  const adjustCustom = (which: 'start' | 'end', delta: number) =>
+    setMedQuietOverride(med.id, {
+      mode: 'custom',
+      startMinutes: which === 'start' ? wrapMin(customStart + delta) : customStart,
+      endMinutes: which === 'end' ? wrapMin(customEnd + delta) : customEnd,
+    });
 
   return (
     <View style={styles.root}>
@@ -209,6 +235,69 @@ export default function MedicationDetailScreen({
           </Section>
         ) : null}
 
+        {/* Per-bottle quiet hours */}
+        <Section title="Quiet hours for this bottle">
+          <View style={styles.segRow}>
+            {(
+              [
+                ['default', 'Follow app'],
+                ['always', 'Always ring'],
+                ['custom', 'Custom'],
+              ] as [MedQuietMode, string][]
+            ).map(([mode, label]) => {
+              const active = quietMode === mode;
+              return (
+                <Pressable
+                  key={mode}
+                  onPress={() => onQuietMode(mode)}
+                  style={[styles.segBtn, active && styles.segBtnActive]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={label}
+                >
+                  <Text style={[styles.segText, active && styles.segTextActive]}>
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {quietMode === 'always' ? (
+            <Text style={styles.quietHint}>
+              This bottle always rings, even during your app-wide quiet hours —
+              use it for a drop you can't miss.
+            </Text>
+          ) : quietMode === 'custom' ? (
+            <>
+              <View style={styles.customRow}>
+                <QuietStep
+                  label="Mute from"
+                  value={minutesToClock(customStart)}
+                  onDown={() => adjustCustom('start', -30)}
+                  onUp={() => adjustCustom('start', 30)}
+                />
+                <QuietStep
+                  label="Until"
+                  value={minutesToClock(customEnd)}
+                  onDown={() => adjustCustom('end', -30)}
+                  onUp={() => adjustCustom('end', 30)}
+                />
+              </View>
+              <Text style={styles.quietHint}>
+                This bottle's reminders stay silent {minutesToClock(customStart)}–
+                {minutesToClock(customEnd)}, regardless of the app-wide setting.
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.quietHint}>
+              {settings.quietHoursEnabled
+                ? `Uses your app-wide quiet hours (${minutesToClock(settings.quietStartMinutes)}–${minutesToClock(settings.quietEndMinutes)}).`
+                : 'Uses the app-wide setting — quiet hours are currently off.'}
+            </Text>
+          )}
+        </Section>
+
         {/* Actions */}
         <Pressable
           style={styles.logBtn}
@@ -296,6 +385,48 @@ function StepBtn({
   );
 }
 
+function QuietStep({
+  label,
+  value,
+  onDown,
+  onUp,
+}: {
+  label: string;
+  value: string;
+  onDown: () => void;
+  onUp: () => void;
+}) {
+  return (
+    <View style={styles.quietStep}>
+      <Text style={styles.quietStepLabel}>{label}</Text>
+      <View style={styles.quietStepControls}>
+        <Pressable
+          style={styles.quietStepBtn}
+          onPress={onDown}
+          accessibilityRole="button"
+          accessibilityLabel={`${label} earlier`}
+        >
+          <Text style={styles.quietStepBtnText}>−</Text>
+        </Pressable>
+        <Text style={styles.quietStepValue}>{value}</Text>
+        <Pressable
+          style={styles.quietStepBtn}
+          onPress={onUp}
+          accessibilityRole="button"
+          accessibilityLabel={`${label} later`}
+        >
+          <Text style={styles.quietStepBtnText}>＋</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/** Wrap minutes into [0, 1440). */
+function wrapMin(minutes: number): number {
+  return ((minutes % 1440) + 1440) % 1440;
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: palette.ink900 },
   rootCentered: {
@@ -372,6 +503,43 @@ const styles = StyleSheet.create({
 
   timesLine: { color: palette.textHi, fontSize: t.body, fontWeight: t.weightBold, textAlign: 'center' },
   intervalLine: { color: palette.textMid, fontSize: t.label, textAlign: 'center' },
+
+  segRow: { flexDirection: 'row', gap: space.sm },
+  segBtn: {
+    flex: 1,
+    minHeight: touch.minTarget - 8,
+    paddingHorizontal: space.xs,
+    borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: palette.ink500,
+    backgroundColor: palette.ink600,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segBtnActive: { borderColor: palette.cyan, backgroundColor: '#06282B' },
+  segText: { color: palette.textMid, fontSize: t.label, fontWeight: t.weightBold, textAlign: 'center' },
+  segTextActive: { color: palette.mint },
+  quietHint: { color: palette.textMid, fontSize: t.label, lineHeight: 24 },
+  customRow: { flexDirection: 'row', gap: space.md },
+  quietStep: { flex: 1, gap: space.sm },
+  quietStepLabel: { color: palette.textMid, fontSize: t.label, fontWeight: t.weightMed },
+  quietStepControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  quietStepBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: palette.cyan,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quietStepBtnText: { color: palette.cyan, fontSize: t.heading, fontWeight: t.weightBlack },
+  quietStepValue: {
+    color: palette.textHi,
+    fontSize: t.heading,
+    fontWeight: t.weightBlack,
+    fontVariant: ['tabular-nums'],
+  },
 
   logBtn: {
     minHeight: touch.giantTarget,

@@ -64,6 +64,12 @@ export interface Medication {
   /** Which eye this medication is prescribed for. */
   laterality: Laterality;
 
+  /**
+   * Per-bottle quiet-hours behaviour. Undefined = follow the global
+   * setting (equivalent to { mode: 'default' }).
+   */
+  quietOverride?: MedQuietOverride;
+
   /** Barcode/NDC payload captured at scan time, if any. */
   barcode?: string;
   scanSource: ScanSource;
@@ -83,6 +89,23 @@ export interface Medication {
 
   createdAt: number;
   updatedAt: number;
+}
+
+/**
+ * How one bottle relates to quiet hours.
+ *   default — obey the global quiet-hours setting
+ *   always  — critical drop: always ring, even during quiet hours
+ *   custom  — this bottle has its own quiet window (applies regardless
+ *             of the global toggle)
+ */
+export type MedQuietMode = 'default' | 'always' | 'custom';
+
+export interface MedQuietOverride {
+  mode: MedQuietMode;
+  /** Custom window start, minutes-from-midnight (mode === 'custom'). */
+  startMinutes?: number;
+  /** Custom window end, minutes-from-midnight (mode === 'custom'). */
+  endMinutes?: number;
 }
 
 /** Cadence type for a dosing schedule. */

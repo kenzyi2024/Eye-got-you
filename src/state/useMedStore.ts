@@ -24,6 +24,7 @@ import {
   DropForm,
   Laterality,
   Medication,
+  MedQuietOverride,
   ReminderSettings,
   ScanSource,
   ScheduleKind,
@@ -72,6 +73,10 @@ interface MedState {
   /* ---- mutations ---- */
   addScannedMedication: (bottle: ScannedBottle) => Medication;
   setLaterality: (medicationId: string, laterality: Laterality) => void;
+  setMedQuietOverride: (
+    medicationId: string,
+    override: MedQuietOverride | undefined,
+  ) => void;
   setTimesPerDay: (medicationId: string, timesPerDay: number) => void;
   toggleReminders: (scheduleId: string, enabled: boolean) => void;
   markOpened: (medicationId: string, when?: number) => void;
@@ -167,6 +172,15 @@ export const useMedStore = create<MedState>()(
           medications: s.medications.map((m) =>
             m.id === medicationId
               ? { ...m, laterality, updatedAt: Date.now() }
+              : m,
+          ),
+        })),
+
+      setMedQuietOverride: (medicationId, override) =>
+        set((s) => ({
+          medications: s.medications.map((m) =>
+            m.id === medicationId
+              ? { ...m, quietOverride: override, updatedAt: Date.now() }
               : m,
           ),
         })),

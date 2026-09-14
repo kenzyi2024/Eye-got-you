@@ -122,12 +122,20 @@ setting a dose time a minute or two ahead, or call `listOwnedReminders()` to
 see what's queued.
 
 The **Reminders** screen (⚙ on Home → `ReminderSettingsScreen`) adds:
+- **Test reminder in 10s** — fires one notification so you can confirm on-device
+  that reminders arrive (`sendTestReminder`).
 - **Quiet hours** — a window (wraps past midnight) whose dose slots are muted;
   toggling it reschedules everything. Skipped slots are still visible per bottle.
 - **Snooze 10 min** — a one-off nudge per bottle. Snoozes are tagged separately
   so a reschedule won't wipe them; they fire once and disappear.
 - **Currently scheduled** — the live queue from `listOwnedReminders()`, each row
   cancellable, refreshed on focus.
+
+**Per-bottle quiet-hours override** lives on each medication's detail screen
+(`isDoseMuted` resolves it):
+- **Follow app** — obey the global quiet hours (default).
+- **Always ring** — critical drop; never muted, even during quiet hours.
+- **Custom** — this bottle's own mute window, independent of the global toggle.
 
 > **Expo Go note:** local scheduled notifications work in Expo Go on **iOS**.
 > **Android** Expo Go has limited notification support — use a dev build

@@ -14,6 +14,7 @@ import {
   computeExpiry,
   evaluateDoseAttempt,
   formatCountdown,
+  isDoseMuted,
   isWithinQuietHours,
   minutesToClock,
   optimalIntervalHours,
@@ -132,6 +133,28 @@ check('same-day window (13:00–14:00)', () => {
 });
 check('empty window (start === end) is never quiet', () => {
   assert.equal(isWithinQuietHours(3 * 60, 8 * 60, 8 * 60), false);
+});
+
+console.log('Per-bottle quiet override:');
+const GLOBAL_ON = { quietHoursEnabled: true, quietStartMinutes: 22 * 60, quietEndMinutes: 7 * 60 };
+const GLOBAL_OFF = { quietHoursEnabled: false, quietStartMinutes: 22 * 60, quietEndMinutes: 7 * 60 };
+
+check("'default'/none follows global quiet hours", () => {
+  assert.equal(isDoseMuted(23 * 60, undefined, GLOBAL_ON), true);
+  assert.equal(isDoseMuted(12 * 60, undefined, GLOBAL_ON), false);
+  assert.equal(isDoseMuted(23 * 60, undefined, GLOBAL_OFF), false); // global off
+  assert.equal(isDoseMuted(23 * 60, { mode: 'default' }, GLOBAL_ON), true);
+});
+check("'always' never mutes, even inside global quiet hours", () => {
+  assert.equal(isDoseMuted(3 * 60, { mode: 'always' }, GLOBAL_ON), false);
+});
+check("'custom' uses its own window regardless of the global toggle", () => {
+  const ov = { mode: 'custom' as const, startMinutes: 13 * 60, endMinutes: 14 * 60 };
+  assert.equal(isDoseMuted(13 * 60 + 30, ov, GLOBAL_OFF), true); // muted despite global off
+  assert.equal(isDoseMuted(9 * 60, ov, GLOBAL_ON), false); // outside custom, ignores global
+});
+check("'custom' with missing bounds is never muted", () => {
+  assert.equal(isDoseMuted(3 * 60, { mode: 'custom' }, GLOBAL_ON), false);
 });
 
 console.log(`\nAll ${passed} checks passed.`);

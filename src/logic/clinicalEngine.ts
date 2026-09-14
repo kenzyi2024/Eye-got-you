@@ -16,6 +16,8 @@ import {
   DoseStatus,
   DosingSchedule,
   Medication,
+  MedQuietOverride,
+  ReminderSettings,
   WakingWindow,
   WASHOUT_MS,
 } from '../models/medication';
@@ -231,6 +233,38 @@ export function isWithinQuietHours(
   if (start === end) return false; // empty (or full-day) window → treat as off
   if (start < end) return t >= start && t < end; // same-day window
   return t >= start || t < end; // wraps past midnight
+}
+
+/**
+ * Resolve whether a specific dose slot should be muted, honouring a
+ * bottle's per-medication override on top of the global setting:
+ *
+ *   override 'always' — never muted (critical drop, rings anytime)
+ *   override 'custom' — muted inside the bottle's own window, always
+ *   override 'default'/none — muted only when global quiet hours are on
+ *                             and the slot falls inside the global window
+ */
+export function isDoseMuted(
+  slotMinutes: number,
+  override: MedQuietOverride | undefined,
+  globalSettings: ReminderSettings,
+): boolean {
+  const mode = override?.mode ?? 'default';
+
+  if (mode === 'always') return false;
+
+  if (mode === 'custom') {
+    if (override?.startMinutes == null || override?.endMinutes == null) return false;
+    return isWithinQuietHours(slotMinutes, override.startMinutes, override.endMinutes);
+  }
+
+  // 'default' — follow the global setting.
+  if (!globalSettings.quietHoursEnabled) return false;
+  return isWithinQuietHours(
+    slotMinutes,
+    globalSettings.quietStartMinutes,
+    globalSettings.quietEndMinutes,
+  );
 }
 
 /* -------------------------------------------------------------------------- */

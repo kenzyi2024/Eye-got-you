@@ -24,7 +24,7 @@ import {
   ReminderSettings,
   SNOOZE_MINUTES,
 } from '../models/medication';
-import { computeExpiry, isWithinQuietHours } from '../logic/clinicalEngine';
+import { computeExpiry, isDoseMuted } from '../logic/clinicalEngine';
 
 const ANDROID_CHANNEL = 'dose-reminders';
 
@@ -88,8 +88,8 @@ function toHourMinute(minutes: number): { hour: number; minute: number } {
   return { hour: Math.floor(m / 60), minute: m % 60 };
 }
 
-/** Reminder kinds we schedule. Recurring 'daily' vs one-off 'snooze'. */
-type ReminderKind = 'daily' | 'snooze';
+/** Reminder kinds we schedule. Recurring 'daily' vs one-off 'snooze'/'test'. */
+type ReminderKind = 'daily' | 'snooze' | 'test';
 
 function isOwned(n: Notifications.NotificationRequest, kind?: ReminderKind): boolean {
   const data = n.content?.data;
@@ -152,10 +152,7 @@ export async function rescheduleAllReminders(
     const eye = LATERALITY_LABEL[med.laterality];
 
     for (const slot of schedule.doseTimesMinutes) {
-      if (
-        settings.quietHoursEnabled &&
-        isWithinQuietHours(slot, settings.quietStartMinutes, settings.quietEndMinutes)
-      ) {
+      if (isDoseMuted(slot, med.quietOverride, settings)) {
         muted++;
         continue;
       }
@@ -221,6 +218,32 @@ export async function snoozeReminder(
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
       seconds: Math.max(1, Math.round(minutes * 60)),
+      repeats: false,
+      ...(Platform.OS === 'android' ? { channelId: ANDROID_CHANNEL } : null),
+    },
+  });
+}
+
+/**
+ * Fire a one-off test reminder after `seconds` (default 10) so a patient
+ * can confirm on-device that notifications actually arrive. Tagged 'test'
+ * so it shows in the queue and is never touched by a reschedule.
+ */
+export async function sendTestReminder(seconds: number = 10): Promise<string | null> {
+  const granted = await ensureNotificationPermission();
+  if (!granted) return null;
+
+  const fireAt = Date.now() + seconds * 1000;
+  return Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Eye got you — test reminder',
+      body: `If you can see this, reminders are working. 👁️`,
+      sound: 'default',
+      data: { owner: OWNER_TAG, kind: 'test' as ReminderKind, fireAt },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: Math.max(1, Math.round(seconds)),
       repeats: false,
       ...(Platform.OS === 'android' ? { channelId: ANDROID_CHANNEL } : null),
     },

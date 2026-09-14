@@ -28,6 +28,7 @@ import { useMedStore } from '../state/useMedStore';
 import {
   cancelOneReminder,
   listOwnedReminders,
+  sendTestReminder,
   snoozeReminder,
 } from '../lib/notifications';
 import { minutesToClock } from '../logic/clinicalEngine';
@@ -50,6 +51,7 @@ export default function ReminderSettingsScreen(_: ReminderSettingsProps) {
 
   const [queued, setQueued] = useState<Notifications.NotificationRequest[] | null>(null);
   const [snoozed, setSnoozed] = useState<string | null>(null);
+  const [testState, setTestState] = useState<'idle' | 'sent' | 'blocked'>('idle');
 
   const refresh = useCallback(async () => {
     const list = await listOwnedReminders();
@@ -85,6 +87,13 @@ export default function ReminderSettingsScreen(_: ReminderSettingsProps) {
     await refresh();
   };
 
+  const onTest = async () => {
+    const id = await sendTestReminder(10);
+    setTestState(id ? 'sent' : 'blocked');
+    await refresh();
+    setTimeout(() => setTestState('idle'), 4000);
+  };
+
   const medName = (id?: unknown) =>
     medications.find((m) => m.id === id)?.name ??
     useMedStore.getState().medications.find((m) => m.id === id)?.name ??
@@ -101,6 +110,35 @@ export default function ReminderSettingsScreen(_: ReminderSettingsProps) {
           { paddingTop: insets.top + space.md, paddingBottom: insets.bottom + space.xxl },
         ]}
       >
+        {/* Test reminder --------------------------------------------------- */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Check it works</Text>
+          <Text style={styles.quietNote}>
+            Sends one notification in 10 seconds so you can confirm reminders
+            arrive on this device.
+          </Text>
+          {testState === 'sent' ? (
+            <View style={[styles.testBtn, styles.testSent]}>
+              <Text style={styles.testSentText}>✓ Coming in 10 seconds…</Text>
+            </View>
+          ) : testState === 'blocked' ? (
+            <View style={[styles.testBtn, styles.testBlocked]}>
+              <Text style={styles.testBlockedText}>
+                Notifications are turned off — enable them in Settings
+              </Text>
+            </View>
+          ) : (
+            <Pressable
+              style={styles.testBtn}
+              onPress={onTest}
+              accessibilityRole="button"
+              accessibilityLabel="Send a test reminder in 10 seconds"
+            >
+              <Text style={styles.testBtnText}>Test reminder in 10s</Text>
+            </Pressable>
+          )}
+        </View>
+
         {/* Quiet hours ------------------------------------------------------ */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quiet hours</Text>
@@ -220,8 +258,10 @@ function QueueRow({
   onCancel: () => void;
 }) {
   const data = request.content?.data ?? {};
-  const isSnooze = data.kind === 'snooze';
-  const when = isSnooze
+  const kind = data.kind as 'daily' | 'snooze' | 'test' | undefined;
+  const isOneOff = kind === 'snooze' || kind === 'test';
+
+  const when = isOneOff
     ? typeof data.fireAt === 'number'
       ? new Date(data.fireAt).toLocaleTimeString(undefined, {
           hour: '2-digit',
@@ -232,14 +272,21 @@ function QueueRow({
     ? minutesToClock(data.slot)
     : '—';
 
+  const meta =
+    kind === 'snooze'
+      ? `Snoozed · once at ${when}`
+      : kind === 'test'
+      ? `Test · once at ${when}`
+      : `Daily · ${when}`;
+  const dotColor = kind === 'test' ? palette.confirmYellow : isOneOff ? palette.mint : palette.cyan;
+  const rowName = kind === 'test' ? 'Test reminder' : name;
+
   return (
     <View style={styles.queueRow}>
-      <View style={[styles.kindDot, { backgroundColor: isSnooze ? palette.mint : palette.cyan }]} />
+      <View style={[styles.kindDot, { backgroundColor: dotColor }]} />
       <View style={{ flex: 1 }}>
-        <Text style={styles.queueName}>{name}</Text>
-        <Text style={styles.queueMeta}>
-          {isSnooze ? `Snoozed · once at ${when}` : `Daily · ${when}`}
-        </Text>
+        <Text style={styles.queueName}>{rowName}</Text>
+        <Text style={styles.queueMeta}>{meta}</Text>
       </View>
       <Pressable
         onPress={onCancel}
@@ -300,7 +347,9 @@ function wrap(minutes: number): number {
 function sortQueue(list: Notifications.NotificationRequest[]) {
   const key = (n: Notifications.NotificationRequest) => {
     const d = n.content?.data ?? {};
-    if (d.kind === 'snooze') return 100000 + (typeof d.fireAt === 'number' ? d.fireAt : 0);
+    if (d.kind === 'snooze' || d.kind === 'test') {
+      return 100000 + (typeof d.fireAt === 'number' ? d.fireAt : 0);
+    }
     return typeof d.slot === 'number' ? d.slot : 0;
   };
   return [...list].sort((a, b) => key(a) - key(b));
@@ -347,6 +396,20 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   quietNote: { color: palette.textMid, fontSize: t.label, lineHeight: 24 },
+
+  testBtn: {
+    minHeight: touch.minTarget,
+    borderRadius: radius.pill,
+    backgroundColor: palette.cyan,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: space.lg,
+  },
+  testBtnText: { color: palette.confirmBlack, fontSize: t.body, fontWeight: t.weightBlack },
+  testSent: { backgroundColor: '#06282B', borderWidth: 2, borderColor: palette.mint },
+  testSentText: { color: palette.mint, fontSize: t.body, fontWeight: t.weightBold },
+  testBlocked: { backgroundColor: palette.dangerDeep, borderWidth: 2, borderColor: palette.danger },
+  testBlockedText: { color: palette.danger, fontSize: t.label, fontWeight: t.weightBold, textAlign: 'center' },
 
   emptyLine: { color: palette.textMid, fontSize: t.body },
 
