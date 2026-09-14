@@ -132,10 +132,25 @@ The **Reminders** screen (⚙ on Home → `ReminderSettingsScreen`) adds:
   cancellable, refreshed on focus.
 
 **Per-bottle quiet-hours override** lives on each medication's detail screen
-(`isDoseMuted` resolves it):
+(`isDoseMuted` resolves it), and shows as a small badge on the Home row:
 - **Follow app** — obey the global quiet hours (default).
 - **Always ring** — critical drop; never muted, even during quiet hours.
 - **Custom** — this bottle's own mute window, independent of the global toggle.
+
+**Notification actions.** Every dose reminder carries the `dose-reminder`
+category with two inline buttons (`setNotificationCategoryAsync`):
+- **✓ Log dose** — logs the dose straight from the notification. It runs the
+  same washout check; if it would wash out another drop, it posts a warning
+  instead of writing the dose.
+- **Snooze 10 min** — schedules a one-off nudge.
+
+Taps are routed in `useReminderSync` by `response.actionIdentifier`; a plain
+body tap still opens the medication.
+
+> Actions use `opensAppToForeground: false`. If the app was killed, the action
+> is processed the next time the app runs (the dose is timestamped then). For
+> exact-time logging while fully backgrounded, register an
+> `expo-task-manager` background handler — a natural follow-up.
 
 > **Expo Go note:** local scheduled notifications work in Expo Go on **iOS**.
 > **Android** Expo Go has limited notification support — use a dev build

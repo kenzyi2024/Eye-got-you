@@ -31,6 +31,12 @@ const ANDROID_CHANNEL = 'dose-reminders';
 /** Tag we stamp on every notification we own, so we never touch others. */
 const OWNER_TAG = 'eye-got-you';
 
+/** Category with inline action buttons on a dose reminder. */
+export const CATEGORY_DOSE = 'dose-reminder';
+/** Action identifiers surfaced on the notification (and in responses). */
+export const ACTION_LOG = 'LOG_DOSE';
+export const ACTION_SNOOZE = 'SNOOZE_DOSE';
+
 let configured = false;
 
 /**
@@ -50,6 +56,20 @@ export async function configureNotifications(): Promise<void> {
       shouldSetBadge: false,
     }),
   });
+
+  // Inline actions: log the dose (or snooze) without opening the app.
+  await Notifications.setNotificationCategoryAsync(CATEGORY_DOSE, [
+    {
+      identifier: ACTION_LOG,
+      buttonTitle: '✓ Log dose',
+      options: { opensAppToForeground: false },
+    },
+    {
+      identifier: ACTION_SNOOZE,
+      buttonTitle: 'Snooze 10 min',
+      options: { opensAppToForeground: false },
+    },
+  ]);
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL, {
@@ -165,6 +185,7 @@ export async function rescheduleAllReminders(
             ? `${med.strength} · ${eye}`
             : `${eye} — tap to log your dose`,
           sound: 'default',
+          categoryIdentifier: CATEGORY_DOSE,
           data: {
             owner: OWNER_TAG,
             kind: 'daily' as ReminderKind,
@@ -208,6 +229,7 @@ export async function snoozeReminder(
       title: `Reminder: ${med.name}`,
       body: `Snoozed ${minutes} min · ${eye} — tap to log your dose`,
       sound: 'default',
+      categoryIdentifier: CATEGORY_DOSE,
       data: {
         owner: OWNER_TAG,
         kind: 'snooze' as ReminderKind,
@@ -247,6 +269,30 @@ export async function sendTestReminder(seconds: number = 10): Promise<string | n
       repeats: false,
       ...(Platform.OS === 'android' ? { channelId: ANDROID_CHANNEL } : null),
     },
+  });
+}
+
+/**
+ * Fire an immediate warning when a quick-log from a notification would
+ * break the 5-minute washout. Shown instead of writing the dose.
+ */
+export async function notifyWashoutBlocked(
+  attemptedName: string,
+  blockingName: string | undefined,
+  remainingMs: number,
+): Promise<void> {
+  const mins = Math.ceil(remainingMs / 60000);
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '⚠ Too soon — would wash out',
+      body: blockingName
+        ? `${attemptedName} would wash out ${blockingName}. Wait ~${mins} min, then log in the app.`
+        : `Wait ~${mins} min before your next drop, then log in the app.`,
+      sound: 'default',
+      data: { owner: OWNER_TAG, kind: 'test' as ReminderKind },
+      ...(Platform.OS === 'android' ? { channelId: ANDROID_CHANNEL } : null),
+    },
+    trigger: null, // deliver now
   });
 }
 

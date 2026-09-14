@@ -157,6 +157,7 @@ function MedRow({ med, onPress }: { med: Medication; onPress: () => void }) {
             .filter(Boolean)
             .join('  ·  ')}
         </Text>
+        <QuietBadge med={med} />
       </View>
 
       {expLabel ? (
@@ -166,6 +167,27 @@ function MedRow({ med, onPress }: { med: Medication; onPress: () => void }) {
       ) : null}
       <Text style={styles.chevron}>›</Text>
     </Pressable>
+  );
+}
+
+/** Small indicator when a bottle has a per-bottle quiet-hours override. */
+function QuietBadge({ med }: { med: Medication }) {
+  const mode = med.quietOverride?.mode;
+  if (mode !== 'always' && mode !== 'custom') return null;
+
+  const always = mode === 'always';
+  const label = always
+    ? '🔔 Always rings'
+    : `🌙 Quiet ${minutesToClock(med.quietOverride!.startMinutes ?? 0)}–${minutesToClock(
+        med.quietOverride!.endMinutes ?? 0,
+      )}`;
+
+  return (
+    <View style={[styles.quietBadge, always ? styles.quietBadgeAlways : styles.quietBadgeCustom]}>
+      <Text style={[styles.quietBadgeText, { color: always ? palette.mint : palette.textMid }]}>
+        {label}
+      </Text>
+    </View>
   );
 }
 
@@ -232,6 +254,17 @@ const styles = StyleSheet.create({
   },
   rowName: { color: palette.textHi, fontSize: t.heading, fontWeight: t.weightBold },
   rowMeta: { color: palette.textMid, fontSize: t.label },
+  quietBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 2,
+    paddingHorizontal: space.sm,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  quietBadgeAlways: { borderColor: palette.mint, backgroundColor: '#06282B' },
+  quietBadgeCustom: { borderColor: palette.ink500, backgroundColor: palette.ink600 },
+  quietBadgeText: { fontSize: t.caption, fontWeight: t.weightBold },
   expiryPill: {
     paddingHorizontal: space.md,
     paddingVertical: 6,

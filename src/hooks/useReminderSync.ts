@@ -13,8 +13,12 @@ import * as Notifications from 'expo-notifications';
 
 import { useMedStore } from '../state/useMedStore';
 import {
+  ACTION_LOG,
+  ACTION_SNOOZE,
   configureNotifications,
+  notifyWashoutBlocked,
   rescheduleAllReminders,
+  snoozeReminder,
 } from '../lib/notifications';
 import { openMedication } from '../navigation/navigationRef';
 
@@ -27,13 +31,42 @@ export function useReminderSync(): void {
   const settings = useMedStore((s) => s.settings);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Configure handler/channel + handle taps once.
+  // Configure handler/channel/category + handle taps and action buttons once.
   useEffect(() => {
     configureNotifications();
 
     const sub = Notifications.addNotificationResponseReceivedListener((resp) => {
-      const medId = resp.notification.request.content.data?.medicationId;
-      if (typeof medId === 'string') openMedication(medId);
+      const data = resp.notification.request.content.data ?? {};
+      const medId = data.medicationId;
+      if (typeof medId !== 'string') return;
+
+      const store = useMedStore.getState();
+
+      switch (resp.actionIdentifier) {
+        case ACTION_LOG: {
+          // Quick-log straight from the notification, honouring washout.
+          const decision = store.logDose(medId);
+          if (!decision.allowed) {
+            const blockerId = store.washout().blockingMedicationId;
+            const blocker = store.medications.find((m) => m.id === blockerId);
+            const attempted = store.medications.find((m) => m.id === medId);
+            notifyWashoutBlocked(
+              attempted?.name ?? 'This drop',
+              blocker?.name,
+              decision.remainingMs,
+            );
+          }
+          break;
+        }
+        case ACTION_SNOOZE: {
+          const med = store.medications.find((m) => m.id === medId);
+          if (med) snoozeReminder(med);
+          break;
+        }
+        default:
+          // Body tap (DEFAULT_ACTION_IDENTIFIER) → open the medication.
+          openMedication(medId);
+      }
     });
 
     return () => sub.remove();
