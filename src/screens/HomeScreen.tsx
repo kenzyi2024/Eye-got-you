@@ -182,8 +182,16 @@ function QuietBadge({ med }: { med: Medication }) {
         med.quietOverride!.endMinutes ?? 0,
       )}`;
 
+  const a11y = always
+    ? 'Always rings, even during quiet hours'
+    : `Custom quiet hours ${minutesToClock(med.quietOverride!.startMinutes ?? 0)} to ${minutesToClock(med.quietOverride!.endMinutes ?? 0)}`;
+
   return (
-    <View style={[styles.quietBadge, always ? styles.quietBadgeAlways : styles.quietBadgeCustom]}>
+    <View
+      style={[styles.quietBadge, always ? styles.quietBadgeAlways : styles.quietBadgeCustom]}
+      accessible
+      accessibilityLabel={a11y}
+    >
       <Text style={[styles.quietBadgeText, { color: always ? palette.mint : palette.textMid }]}>
         {label}
       </Text>

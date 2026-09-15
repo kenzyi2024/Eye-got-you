@@ -7,21 +7,30 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#04060B",
     "scheme": "eyegotyou",
-    "splash": {
-      "backgroundColor": "#04060B",
-      "resizeMode": "contain"
-    },
+    "icon": "./assets/icon.png",
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Eye got you uses the camera to read your eye-drop bottle so you never have to type it in.",
-        "UIUserInterfaceStyle": "Dark"
+        "UIUserInterfaceStyle": "Dark",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false
+        }
       }
     },
     "android": {
       "userInterfaceStyle": "dark",
-      "permissions": ["CAMERA", "VIBRATE", "POST_NOTIFICATIONS", "SCHEDULE_EXACT_ALARM"]
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#04060B"
+      },
+      "permissions": ["CAMERA", "VIBRATE", "POST_NOTIFICATIONS", "SCHEDULE_EXACT_ALARM"],
+      "usesCleartextTraffic": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       [
@@ -33,7 +42,17 @@
       [
         "expo-notifications",
         {
+          "icon": "./assets/notification-icon.png",
           "color": "#2EC5CE"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#04060B"
         }
       ]
     ]

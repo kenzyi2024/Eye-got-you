@@ -10,9 +10,10 @@
  *   npx expo install zustand @react-native-async-storage/async-storage
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+
+import { secureStorage } from '../lib/secureStorage';
 
 import {
   DEFAULT_DISCARD_DAYS,
@@ -60,6 +61,10 @@ interface MedState {
   schedules: DosingSchedule[];
   logs: DoseLog[];
   settings: ReminderSettings;
+  /** Epoch ms the medical disclaimer was accepted; null until then. */
+  disclaimerAcceptedAt: number | null;
+  /** Opt-out flag for privacy-preserving analytics (default on = false). */
+  analyticsOptedOut: boolean;
 
   /* ---- selectors (derived, computed on demand) ---- */
   washout: () => WashoutState;
@@ -69,6 +74,8 @@ interface MedState {
   /* ---- settings ---- */
   setQuietHoursEnabled: (enabled: boolean) => void;
   setQuietHours: (startMinutes: number, endMinutes: number) => void;
+  acceptDisclaimer: () => void;
+  setAnalyticsOptedOut: (optedOut: boolean) => void;
 
   /* ---- mutations ---- */
   addScannedMedication: (bottle: ScannedBottle) => Medication;
@@ -103,6 +110,8 @@ export const useMedStore = create<MedState>()(
       schedules: [],
       logs: [],
       settings: DEFAULT_REMINDER_SETTINGS,
+      disclaimerAcceptedAt: null,
+      analyticsOptedOut: false,
 
       /* ------------------------------ selectors ------------------------------ */
 
@@ -123,6 +132,10 @@ export const useMedStore = create<MedState>()(
           settings: { ...s.settings, quietStartMinutes: startMinutes, quietEndMinutes: endMinutes },
         })),
 
+      acceptDisclaimer: () => set({ disclaimerAcceptedAt: Date.now() }),
+
+      setAnalyticsOptedOut: (optedOut) => set({ analyticsOptedOut: optedOut }),
+
       /* ------------------------------ mutations ------------------------------ */
 
       addScannedMedication: (bottle) => {
@@ -130,9 +143,12 @@ export const useMedStore = create<MedState>()(
         const accent =
           IRIS_ACCENTS[get().medications.length % IRIS_ACCENTS.length];
 
+        // Validation: never persist an empty/whitespace name (OCR can miss).
+        const safeName = bottle.name.trim() || 'Unnamed medication';
+
         const med: Medication = {
           id: uid(),
-          name: bottle.name.trim(),
+          name: safeName,
           strength: bottle.strength,
           form: bottle.form ?? DropForm.Solution,
           colorHex: accent,
@@ -269,13 +285,16 @@ export const useMedStore = create<MedState>()(
     }),
     {
       name: 'eye-got-you/med-store/v1',
-      storage: createJSONStorage(() => AsyncStorage),
+      // Encrypted-at-rest adapter (AES key held in the device keystore).
+      storage: createJSONStorage(() => secureStorage),
       // Only persist raw data; selectors are functions and skipped.
       partialize: (s) => ({
         medications: s.medications,
         schedules: s.schedules,
         logs: s.logs,
         settings: s.settings,
+        disclaimerAcceptedAt: s.disclaimerAcceptedAt,
+        analyticsOptedOut: s.analyticsOptedOut,
       }),
     },
   ),

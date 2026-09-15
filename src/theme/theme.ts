@@ -35,7 +35,9 @@ export const palette = {
   /** Text. */
   textHi: '#F4F8FF',
   textMid: '#AEB9D0',
-  textLow: '#6C7893',
+  // WCAG AA (>=4.5:1) on every surface we place it on (ink600–ink900).
+  // Bumped from #6C7893 (failed at 4.19 on cards) for low-vision legibility.
+  textLow: '#8792AC',
 
   white: '#FFFFFF',
 };

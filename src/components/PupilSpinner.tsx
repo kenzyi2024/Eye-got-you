@@ -21,9 +21,11 @@ import { palette, timing } from '../theme/theme';
 
 export interface PupilSpinnerProps {
   size?: number;
+  /** Screen-reader label. Omit to treat the spinner as decorative. */
+  label?: string;
 }
 
-export function PupilSpinner({ size = 96 }: PupilSpinnerProps) {
+export function PupilSpinner({ size = 96, label }: PupilSpinnerProps) {
   // 0 = constricted, 1 = dilated
   const dilation = useSharedValue(0.2);
 
@@ -56,7 +58,13 @@ export function PupilSpinner({ size = 96 }: PupilSpinnerProps) {
   const r = size / 2;
 
   return (
-    <View style={[styles.wrap, { width: size, height: size }]}>
+    <View
+      style={[styles.wrap, { width: size, height: size }]}
+      accessible={!!label}
+      accessibilityRole={label ? 'progressbar' : undefined}
+      accessibilityLabel={label}
+      importantForAccessibility={label ? 'yes' : 'no-hide-descendants'}
+    >
       {/* iris ring */}
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
         <Defs>

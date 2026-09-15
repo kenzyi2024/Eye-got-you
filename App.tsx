@@ -21,13 +21,16 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { palette } from './src/theme/theme';
 import { preloadFeedback } from './src/lib/feedback';
+import { track } from './src/lib/analytics';
 import { useReminderSync } from './src/hooks/useReminderSync';
 import { navigationRef } from './src/navigation/navigationRef';
 import type { RootStackParamList } from './src/navigation/types';
+import { DisclaimerGate } from './src/components/DisclaimerGate';
 import HomeScreen from './src/screens/HomeScreen';
 import ScanScreen from './src/screens/ScanScreen';
 import MedicationDetailScreen from './src/screens/MedicationDetailScreen';
 import ReminderSettingsScreen from './src/screens/ReminderSettingsScreen';
+import LegalScreen from './src/screens/LegalScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -50,11 +53,13 @@ export default function App() {
 
   useEffect(() => {
     preloadFeedback();
+    track('app_opened');
   }, []);
 
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
+      <DisclaimerGate>
       <NavigationContainer ref={navigationRef} theme={navTheme}>
         <Stack.Navigator
           initialRouteName="Home"
@@ -85,8 +90,14 @@ export default function App() {
             component={ReminderSettingsScreen}
             options={{ title: 'Reminders' }}
           />
+          <Stack.Screen
+            name="Legal"
+            component={LegalScreen}
+            options={{ title: 'Legal' }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
+      </DisclaimerGate>
     </SafeAreaProvider>
   );
 }

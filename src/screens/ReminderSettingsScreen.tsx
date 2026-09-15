@@ -9,6 +9,7 @@
 
 import React, { useCallback, useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StatusBar,
@@ -31,6 +32,8 @@ import {
   sendTestReminder,
   snoozeReminder,
 } from '../lib/notifications';
+import { track } from '../lib/analytics';
+import { wipeAllData } from '../lib/secureStorage';
 import { minutesToClock } from '../logic/clinicalEngine';
 import {
   LATERALITY_SHORT,
@@ -40,12 +43,15 @@ import {
 import type { ReminderSettingsProps } from '../navigation/types';
 
 const STEP = 30; // quiet-hours adjust granularity, minutes
+const STORE_NAME = 'eye-got-you/med-store/v1';
 
-export default function ReminderSettingsScreen(_: ReminderSettingsProps) {
+export default function ReminderSettingsScreen({ navigation }: ReminderSettingsProps) {
   const insets = useSafeAreaInsets();
 
   const medications = useMedStore((s) => s.medications.filter((m) => !m.archived));
   const settings = useMedStore((s) => s.settings);
+  const analyticsOptedOut = useMedStore((s) => s.analyticsOptedOut);
+  const setAnalyticsOptedOut = useMedStore((s) => s.setAnalyticsOptedOut);
   const setQuietHoursEnabled = useMedStore((s) => s.setQuietHoursEnabled);
   const setQuietHours = useMedStore((s) => s.setQuietHours);
 
@@ -90,8 +96,36 @@ export default function ReminderSettingsScreen(_: ReminderSettingsProps) {
   const onTest = async () => {
     const id = await sendTestReminder(10);
     setTestState(id ? 'sent' : 'blocked');
+    track('reminder_test_sent');
     await refresh();
     setTimeout(() => setTestState('idle'), 4000);
+  };
+
+  const onQuietToggle = (enabled: boolean) => {
+    setQuietHoursEnabled(enabled);
+    track('quiet_hours_toggled', { quietEnabled: enabled });
+  };
+
+  const onDeleteAll = () => {
+    Alert.alert(
+      'Delete all data?',
+      'This permanently removes every medication, schedule, and log from this ' +
+        'device and cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete everything',
+          style: 'destructive',
+          onPress: async () => {
+            await wipeAllData(STORE_NAME);
+            // Reset the in-memory store so the UI reflects the wipe immediately.
+            useMedStore.setState({ medications: [], schedules: [], logs: [] });
+            await refresh();
+            navigation.popToTop();
+          },
+        },
+      ],
+    );
   };
 
   const medName = (id?: unknown) =>
@@ -145,7 +179,7 @@ export default function ReminderSettingsScreen(_: ReminderSettingsProps) {
           <EyeToggle
             label="Mute reminders overnight"
             value={settings.quietHoursEnabled}
-            onValueChange={setQuietHoursEnabled}
+            onValueChange={onQuietToggle}
           />
 
           {settings.quietHoursEnabled ? (
@@ -224,7 +258,7 @@ export default function ReminderSettingsScreen(_: ReminderSettingsProps) {
 
           {queued == null ? (
             <View style={styles.loading}>
-              <PupilSpinner size={44} />
+              <PupilSpinner size={44} label="Loading scheduled reminders" />
             </View>
           ) : queued.length === 0 ? (
             <Text style={styles.emptyLine}>
@@ -240,6 +274,50 @@ export default function ReminderSettingsScreen(_: ReminderSettingsProps) {
               />
             ))
           )}
+        </View>
+
+        {/* Data & privacy -------------------------------------------------- */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Data & privacy</Text>
+
+          <Text style={styles.quietNote}>
+            Your data stays on this device, encrypted. Nothing is uploaded and we
+            can't see it.
+          </Text>
+
+          <EyeToggle
+            label="Share anonymous usage (no health data)"
+            value={!analyticsOptedOut}
+            onValueChange={(on) => setAnalyticsOptedOut(!on)}
+          />
+
+          <View style={styles.linkRow}>
+            <Pressable
+              style={styles.linkBtn}
+              onPress={() => navigation.navigate('Legal', { doc: 'privacy' })}
+              accessibilityRole="button"
+              accessibilityLabel="Read the Privacy Policy"
+            >
+              <Text style={styles.linkText}>Privacy Policy</Text>
+            </Pressable>
+            <Pressable
+              style={styles.linkBtn}
+              onPress={() => navigation.navigate('Legal', { doc: 'terms' })}
+              accessibilityRole="button"
+              accessibilityLabel="Read the Terms and Conditions"
+            >
+              <Text style={styles.linkText}>Terms & Conditions</Text>
+            </Pressable>
+          </View>
+
+          <Pressable
+            style={styles.deleteBtn}
+            onPress={onDeleteAll}
+            accessibilityRole="button"
+            accessibilityLabel="Delete all app data"
+          >
+            <Text style={styles.deleteText}>Delete all my data</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </View>
@@ -428,6 +506,28 @@ const styles = StyleSheet.create({
   snoozeBtnText: { color: palette.cyan, fontSize: t.label, fontWeight: t.weightBold },
   snoozedBtn: { borderColor: palette.mint, backgroundColor: '#06282B' },
   snoozedText: { color: palette.mint, fontSize: t.label, fontWeight: t.weightBold },
+
+  linkRow: { flexDirection: 'row', gap: space.sm },
+  linkBtn: {
+    flex: 1,
+    minHeight: touch.minTarget - 8,
+    borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: palette.cyan,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: space.sm,
+  },
+  linkText: { color: palette.cyan, fontSize: t.label, fontWeight: t.weightBold, textAlign: 'center' },
+  deleteBtn: {
+    minHeight: touch.minTarget - 8,
+    borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: palette.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteText: { color: palette.danger, fontSize: t.label, fontWeight: t.weightBlack },
 
   queueHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   refresh: { color: palette.cyan, fontSize: t.heading, fontWeight: t.weightBlack },
