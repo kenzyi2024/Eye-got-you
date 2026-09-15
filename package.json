@@ -38,7 +38,7 @@
     "@babel/core": "^7.25.0",
     "@types/crypto-js": "^4.2.2",
     "@types/react": "~19.2.0",
-    "typescript": "~5.9.2"
+    "typescript": "~6.0.3"
   },
   "private": true,
   "_notes": "React, react-native, and all react-native-*/expo-* packages are added via `npx expo install` (see README) so they match Expo SDK 57 exactly. Do not hand-pin them."
