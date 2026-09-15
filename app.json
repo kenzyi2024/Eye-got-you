@@ -8,7 +8,9 @@
     "backgroundColor": "#04060B",
     "scheme": "eyegotyou",
     "icon": "./assets/icon.png",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -26,7 +28,12 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#04060B"
       },
-      "permissions": ["CAMERA", "VIBRATE", "POST_NOTIFICATIONS", "SCHEDULE_EXACT_ALARM"],
+      "permissions": [
+        "CAMERA",
+        "VIBRATE",
+        "POST_NOTIFICATIONS",
+        "SCHEDULE_EXACT_ALARM"
+      ],
       "usesCleartextTraffic": false
     },
     "web": {
@@ -54,7 +61,10 @@
           "resizeMode": "contain",
           "backgroundColor": "#04060B"
         }
-      ]
+      ],
+      "expo-audio",
+      "expo-secure-store",
+      "expo-status-bar"
     ]
   }
 }

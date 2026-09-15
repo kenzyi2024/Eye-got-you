@@ -39,11 +39,23 @@ src/
 ```bash
 cd "path/to/Eye got you"
 
-npm install
-npx expo install --fix   # locks every package to the exact version SDK 57 expects
+# 1) install Expo + the non-managed deps
+npm install --legacy-peer-deps
 
-npx expo start
+# 2) let Expo add every SDK-managed package at the exact SDK 57 version
+npx expo install react react-native react-native-reanimated react-native-worklets \
+  react-native-safe-area-context react-native-screens react-native-svg \
+  @react-native-async-storage/async-storage \
+  expo-audio expo-camera expo-crypto expo-device expo-haptics expo-linear-gradient \
+  expo-notifications expo-secure-store expo-splash-screen expo-status-bar
+
+# 3) run it
+npx expo start -c
 ```
+
+> `react`, `react-native`, and all `react-native-*` / `expo-*` packages are
+> intentionally **not** hand-pinned in `package.json` — `expo install` writes
+> the exact versions SDK 57 expects, which avoids version-not-found errors.
 
 Then install **Expo Go** on your phone, join the **same Wi-Fi**, and scan the QR
 (iPhone: Camera app · Android: scan inside Expo Go). App opens on Home; tap
